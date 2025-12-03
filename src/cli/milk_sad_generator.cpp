@@ -779,7 +779,7 @@ int get_num_addresses_per_mnemonic() {
 }
 
 
-// --- FUNGSI GENERASI PARALEL (DIPERBARUI) ---
+// --- FUNGSI GENERASI PARALEL (DIPERBARUI DAN DIPERBAIKI) ---
 void run_parallel_generation(
     uint32_t start_timestamp, 
     uint32_t end_timestamp, 
@@ -848,8 +848,11 @@ void run_parallel_generation(
 
             std::cout << "Process " << i << " starting from timestamp " << child_start_ts << std::endl;
             uint64_t report_counter = 0;
+            
+            // --- PERBAIKAN BUG KOMPILASI: Pindahkan deklarasi ts keluar dari loop for ---
+            uint32_t ts = child_start_ts; 
 
-            for (uint32_t ts = child_start_ts; ts <= end_timestamp; ts += num_processes) {
+            for (/*ts = child_start_ts; PENGATURAN SUDAH DILAKUKAN DI ATAS */ ; ts <= end_timestamp; ts += num_processes) {
                 if (g_interrupted.load()) break; // Cek interupsi di Child
                 
                 try {
@@ -875,7 +878,8 @@ void run_parallel_generation(
                     if (ts > std::numeric_limits<uint32_t>::max() - num_processes) {
                         save_progress(child_progress_file, end_timestamp + 1); // Mark done
                     } else {
-                        save_progress(child_progress_file, ts + num_processes);
+                        // Simpan posisi berikutnya yang akan diproses
+                        save_progress(child_progress_file, ts + num_processes); 
                     }
                 }
 
@@ -887,9 +891,8 @@ void run_parallel_generation(
             
             if (g_interrupted.load()) {
                 // Jika diinterupsi, simpan progress saat ini
-                if (ts <= end_timestamp) {
-                    save_progress(child_progress_file, ts); 
-                }
+                // ts sudah dalam scope dan memegang nilai terakhir yang berhasil diproses/dicek
+                save_progress(child_progress_file, ts); 
                 outfile_child.close();
                 exit(1); // Exit dengan status error
             }
